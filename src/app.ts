@@ -1,9 +1,25 @@
 import "@babylonjs/core/Debug/debugLayer";
 import "@babylonjs/inspector";
+import { IComponent } from "./components/IComponent";
+import { SceneComponent } from "./components/SceneComponent";
+import { CharacterComponent } from "./components/CharacterComponent";
 import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder } from "@babylonjs/core";
 
 class App {
+    private canvas: HTMLCanvasElement;
+    private engine: Engine;
+    private scene: Scene;
+    private components: IComponent[] = [];
+
     constructor() {
+        this.setupCanvas();
+        this.createEngine();
+        this.createScene();
+        this.registerComponents();
+        this.setupInspector();
+        this.startRenderLoop();
+    }
+    private setupCanvas() {
         // Add CSS to ensure full screen coverage
         const style = document.createElement('style');
         style.textContent = `
@@ -22,37 +38,66 @@ class App {
             }
         `;
         document.head.appendChild(style);
-        
+
         // create the canvas html element and attach it to the webpage
-        var canvas = document.createElement("canvas");
-        canvas.id = "gameCanvas";
-        document.body.appendChild(canvas);
+        this.canvas = document.createElement("canvas");
+        this.canvas.id = "gameCanvas";
+        document.body.appendChild(this.canvas);
+    }
 
-        // initialize babylon scene and engine
-        var engine = new Engine(canvas, true);
-        var scene = new Scene(engine);
+    private createEngine() {
+        this.engine = new Engine(this.canvas, true);
+        window.addEventListener("resize", () => {
+            this.engine.resize();
+        });
+    }
 
-        var camera: ArcRotateCamera = new ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 2, Vector3.Zero(), scene);
-        camera.attachControl(canvas, true);
-        var light1: HemisphericLight = new HemisphericLight("light1", new Vector3(1, 1, 0), scene);
-        var sphere: Mesh = MeshBuilder.CreateSphere("sphere", { diameter: 1 }, scene);
+    private createScene() {
+        this.scene = new Scene(this.engine);    
+    }
 
-        // hide/show the Inspector
+    private addComponent(component: IComponent): void {
+        this.components.push(component);
+    }
+    private async registerComponents(): Promise<void> {
+        const scenecomponent = new SceneComponent(this.scene,this.canvas);
+        this.addComponent(scenecomponent);
+        scenecomponent.initialize();
+
+        const characterComponent = new CharacterComponent(this.scene);
+        this.addComponent(characterComponent);
+        await characterComponent.initialize();
+
+        const followCamera = characterComponent.getCamera();
+        if (followCamera) {
+            //Dispose the previous camera if it exists
+            const defaultCamera = scenecomponent.getCamera();
+            if (defaultCamera) {
+                this.scene.activeCamera.dispose();
+            }
+            this.scene.activeCamera = followCamera;
+        } else {
+            console.warn("Follow camera not initialized in CharacterComponent");
+        }
+
+    }
+    private setupInspector(): void {
         window.addEventListener("keydown", (ev) => {
             // Shift+Ctrl+Alt+I
             if (ev.shiftKey && ev.ctrlKey && ev.altKey && ev.keyCode === 73) {
-                if (scene.debugLayer.isVisible()) {
-                    scene.debugLayer.hide();
+                if (this.scene.debugLayer.isVisible()) {
+                    this.scene.debugLayer.hide();
                 } else {
-                    scene.debugLayer.show();
+                    this.scene.debugLayer.show();
                 }
             }
         });
-
-        // run the main render loop
-        engine.runRenderLoop(() => {
-            scene.render();
+    }
+    private startRenderLoop(): void {
+        this.engine.runRenderLoop(() => {
+            this.components.forEach(component => component.update());
+            this.scene.render();
         });
     }
-}
+    } 
 new App();
