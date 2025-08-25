@@ -14,16 +14,17 @@ export class NetworkManager implements IComponent {
     private socket: Socket;
     private scene: Scene;
     private localPlayer: CharacterComponent;
-    private remotePlayers: Map<string, any> = new Map();
+    private remotePlayers: Map<string, CharacterComponent> = new Map();
     private lastUpdateTime: number = 0;
-    private updateInterval: number = 33;
-    private interpolationFactor: number = 0.15;
-     private playerTargets: Map<string, { position: Vector3; rotationY: number }> = new Map();
+    private updateInterval: number = 16;
+    private interpolationFactor: number = 0.3;
+    private playerTargets: Map<string, { position: Vector3; rotationY: number }> = new Map();
+    private SERVER_URL: string = import.meta.env.VITE_SERVER_URL;
 
     constructor(scene: Scene, localPlayer: CharacterComponent) {
         this.scene = scene;
         this.localPlayer = localPlayer
-        this.socket = io("http://localhost:3000", {
+        this.socket = io(this.SERVER_URL, {
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
@@ -56,13 +57,13 @@ export class NetworkManager implements IComponent {
             console.log("Received current players:", Object.keys(players));
             Object.values(players).forEach(playerData => {
                 if (playerData.id !== this.socket.id) {
-                    if(!this.remotePlayers.has(playerData.id))
-                    this.createRemotePlayer(playerData);
+                    if (!this.remotePlayers.has(playerData.id))
+                        this.createRemotePlayer(playerData);
                 }
             });
         });
 
-        // Hanlde New Player
+        // Handle New Player
         this.socket.on("newPlayer", (playerData: PlayerData) => {
             console.log("New player joined:", playerData.id);
             if (playerData.id !== this.socket.id && !this.remotePlayers.has(playerData.id)) {
@@ -74,23 +75,37 @@ export class NetworkManager implements IComponent {
         this.socket.on("playerMoved", (playerData: PlayerData) => {
             const player = this.remotePlayers.get(playerData.id);
             if (player) {
-                // player.targetPosition = new Vector3(
-                //     playerData.position.x,
-                //     playerData.position.y,
-                //     playerData.position.z
-                // );
-                // player.targetRotation = playerData.rotation.y;
-                this.playerTargets.set(playerData.id,{
-                    position:new Vector3(
+                this.playerTargets.set(playerData.id, {
+                    position: new Vector3(
                         playerData.position.x,
                         playerData.position.y,
                         playerData.position.z
                     ),
-                    rotationY:playerData.rotation.y
+                    rotationY: playerData.rotation.y
                 });
 
-                if (player.setAnimation && playerData.animation) {
-                    player.setAnimation(playerData.animation);
+                if (playerData.animation) {
+                    const animations = player.getAnimations();
+                    const animation = animations.find(anim => anim.name === playerData.animation);
+                    if (animation) {
+                        const currentAnim = player.getCurrentAnimation();
+                        if (currentAnim && currentAnim !== animation) {
+                            currentAnim.stop();
+                        }
+                        if (!animation.isPlaying) {
+                            animation.play(true);
+                        }
+                    }
+                    else {
+                        console.warn(`No animation data for player ${playerData.id}`);
+                    }
+                }
+                else{
+                    //Fallback to idle
+                    const idleAnim = player.getAnimations().find(anim => anim.name === "Idle");
+                    if (idleAnim && !idleAnim.isPlaying) {
+                        idleAnim.play(true);
+                    }
                 }
             }
         });
@@ -108,40 +123,55 @@ export class NetworkManager implements IComponent {
         });
     }
 
-    private createRemotePlayer(playerData: PlayerData): void {
+    private syncRemotePlayerAnimationOnStart(playerId:string,animationName:string = "Idle"):void {
+        const player = this.remotePlayers.get(playerId);
+        if(player){
+            const animations = player.getAnimations();
+            const animation = animations.find(anim => anim.name === animationName);
+            if(animation){
+                const currentAnim = player.getCurrentAnimation();
+                if(currentAnim && currentAnim !== animation){
+                    currentAnim.stop();
+                }
+                animation.play(true);
+            }
+            else{
+                console.warn(`No animation data for player ${playerId} on start`);
+            }
+        }
+    }
+    private async createRemotePlayer(playerData: PlayerData): Promise<void> {
         console.log("Creating remote player:", playerData.id);
-        if(this.remotePlayers.has(playerData.id)){
+        if (this.remotePlayers.has(playerData.id)) {
             return;
         }
-        const playerMesh = this.localPlayer.getCharacterRoot()?.clone(`remotePlayer-${playerData.id}`,null);
-        const playerColor = Color3.Random();
 
-        playerMesh.getChildMeshes().forEach(mesh => {
-            if (mesh.material){
-                const newMat = mesh.material.clone(`playermat-${playerData.id}`);
+        const remotePlayer = new CharacterComponent(this.scene);
+        await remotePlayer.initialize();
+
+        const characterRoot = remotePlayer.getCharacterRoot();
+        if (characterRoot) {
+            characterRoot.position = new Vector3(
+                playerData.position.x,
+                playerData.position.y,
+                playerData.position.z
+            );
+            characterRoot.rotation.y = playerData.rotation.y;
+        }
+
+        const playerColor = Color3.Random();
+        characterRoot.getChildMeshes().forEach(mesh => {
+            if (mesh.material) {
+                const newMat = mesh.material.clone(`Playermat-${playerData.id}`);
                 if (newMat instanceof StandardMaterial) {
                     newMat.diffuseColor = playerColor;
                 }
                 mesh.material = newMat;
             }
-        })
+        });
 
-        playerMesh.position = new Vector3(
-            playerData.position.x,
-            playerData.position.y,
-            playerData.position.z
-        );
-
-        this.playerTargets.set(playerData.id, {
-            position: new Vector3(
-                playerData.position.x,
-                playerData.position.y,
-                playerData.position.z
-            ),
-            rotationY: playerData.rotation.y
-         });
-
-        this.remotePlayers.set(playerData.id, playerMesh);
+        this.remotePlayers.set(playerData.id, remotePlayer);
+        this.syncRemotePlayerAnimationOnStart(playerData.id, playerData.animation);
 
     }
 
@@ -165,30 +195,19 @@ export class NetworkManager implements IComponent {
                 });
             }
         }
-        this.remotePlayers.forEach((player: any,playerId: string) => {
+        this.remotePlayers.forEach((player: CharacterComponent, playerId: string) => {
             const target = this.playerTargets.get(playerId);
-            if (target) {
-                player.position = Vector3.Lerp(
-                    player.position,
+            const root = player.getCharacterRoot();
+            if (target && root) {
+                root.position = Vector3.Lerp(
+                    root.position,
                     target.position,
                     this.interpolationFactor
                 );
-                if(player.rotation){
-                    const deltaRotation = target.rotationY - player.rotation.y;
-                    player.rotation.y += deltaRotation * this.interpolationFactor;
-                }
+                const deltaRotation = target.rotationY - root.rotation.y;
+                root.rotation.y += deltaRotation * this.interpolationFactor;
             }
-            // if(player.targetPosition){
-            //     player.position = Vector3.Lerp(
-            //         player.position,
-            //         player.targetPosition,
-            //         this.interpolationFactor
-            //     );
-            //     if(player.rotation && player.targetRotation !== undefined){
-            //         const deltaRotation = player.targetRotation - player.rotation.y;
-            //         player.rotation.y += deltaRotation * this.interpolationFactor;
-            //     }
-            // }
+
         })
 
     }
