@@ -3,6 +3,7 @@ import "@babylonjs/inspector";
 import { IComponent } from "./components/IComponent";
 import { SceneComponent } from "./components/SceneComponent";
 import { CharacterComponent } from "./components/CharacterComponent";
+import { NetworkManager } from "./components/NetworkManager";
 import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder } from "@babylonjs/core";
 
 class App {
@@ -53,14 +54,14 @@ class App {
     }
 
     private createScene() {
-        this.scene = new Scene(this.engine);    
+        this.scene = new Scene(this.engine);
     }
 
     private addComponent(component: IComponent): void {
         this.components.push(component);
     }
     private async registerComponents(): Promise<void> {
-        const scenecomponent = new SceneComponent(this.scene,this.canvas);
+        const scenecomponent = new SceneComponent(this.scene, this.canvas);
         this.addComponent(scenecomponent);
         scenecomponent.initialize();
 
@@ -80,6 +81,9 @@ class App {
             console.warn("Follow camera not initialized in CharacterComponent");
         }
 
+        const networkManager = new NetworkManager(this.scene, characterComponent);
+        this.addComponent(networkManager);
+        networkManager.initialize();
     }
     private setupInspector(): void {
         window.addEventListener("keydown", (ev) => {
@@ -99,5 +103,5 @@ class App {
             this.scene.render();
         });
     }
-    } 
+}
 new App();

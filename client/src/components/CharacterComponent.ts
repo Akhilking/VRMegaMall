@@ -73,16 +73,12 @@ export class CharacterComponent implements IComponent {
         this.followCamera.heightOffset = 1.5;
         this.followCamera.lowerHeightOffsetLimit = 0.5;
         this.followCamera.upperHeightOffsetLimit = 8;
-           
+
         this.followCamera.rotationOffset = 0;
         this.followCamera.cameraAcceleration = 0.01;
         this.followCamera.maxCameraSpeed = 1;
-        
-        this.followCamera.attachControl(true);
-    }
 
-    getCamera(): FollowCamera | null {
-        return this.followCamera;
+        this.followCamera.attachControl(true);
     }
 
     private setupInputHandling(): void {
@@ -221,5 +217,20 @@ export class CharacterComponent implements IComponent {
         if (this.followCamera) {
             this.followCamera.dispose();
         }
+    }
+
+    getCamera(): FollowCamera | null {
+        return this.followCamera;
+    }
+
+    getCharacterRoot(): TransformNode | null {
+        return this.characterRoot;
+    }
+    getCurrentAnimation(): AnimationGroup | null {
+        return this.currentAnimation;
+    }
+
+    getAnimations(): AnimationGroup[] {
+        return this.animations;
     }
 }
