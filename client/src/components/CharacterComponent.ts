@@ -64,19 +64,19 @@ export class CharacterComponent implements IComponent {
     private setupFollowCamera(): void {
         if (!this.characterRoot) return;
 
-        this.followCamera = new FollowCamera("FollowCamera", new Vector3(0, 5, -10), this.scene, this.characterMesh);
+        this.followCamera = new FollowCamera("FollowCamera", new Vector3(0, 2, -5), this.scene, this.characterMesh);
+        this.followCamera.radius = 5;
+        this.followCamera.lowerRadiusLimit = 3;
+        this.followCamera.upperRadiusLimit = 10;
 
-        this.followCamera.radius = 10;
-        this.followCamera.lowerRadiusLimit = 5;
-        this.followCamera.upperRadiusLimit = 15;
-
-        this.followCamera.heightOffset = 1.5;
+        this.followCamera.heightOffset = 1.0;
         this.followCamera.lowerHeightOffsetLimit = 0.5;
-        this.followCamera.upperHeightOffsetLimit = 8;
+        this.followCamera.upperHeightOffsetLimit = 5;
 
         this.followCamera.rotationOffset = 0;
-        this.followCamera.cameraAcceleration = 0.01;
-        this.followCamera.maxCameraSpeed = 1;
+        this.followCamera.cameraAcceleration = 0.05;
+        this.followCamera.maxCameraSpeed = 10;
+
 
         this.followCamera.attachControl(true);
     }
