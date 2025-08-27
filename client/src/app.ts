@@ -74,14 +74,14 @@ class App {
         this.addComponent(mallComponent);
         await mallComponent.initialize();
 
-        const followCamera = characterComponent.getCamera();
-        if (followCamera) {
+        const fpsCamera = characterComponent.getCamera();
+        if (fpsCamera) {
             //Dispose the previous camera if it exists
             const defaultCamera = scenecomponent.getCamera();
-            if (defaultCamera) {
-                this.scene.activeCamera.dispose();
+            if (defaultCamera && defaultCamera.id !== fpsCamera.id) {
+                defaultCamera.dispose();
             }
-            this.scene.activeCamera = followCamera;
+            this.scene.activeCamera = fpsCamera;
         } else {
             console.warn("Follow camera not initialized in CharacterComponent");
         }
