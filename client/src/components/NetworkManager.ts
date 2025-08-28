@@ -5,6 +5,7 @@ import { CharacterComponent } from "./CharacterComponent";
 
 interface PlayerData {
     id: string;
+    characterId: string;
     position: { x: number; y: number; z: number };
     rotation: { y: number };
     animation: string;
@@ -20,10 +21,12 @@ export class NetworkManager implements IComponent {
     private interpolationFactor: number = 0.3;
     private playerTargets: Map<string, { position: Vector3; rotationY: number }> = new Map();
     private SERVER_URL: string = import.meta.env.VITE_SERVER_URL;
+    private characterId : string;
 
     constructor(scene: Scene, localPlayer: CharacterComponent) {
         this.scene = scene;
-        this.localPlayer = localPlayer
+        this.localPlayer = localPlayer;
+        this.characterId = localPlayer.getInstanceId();
         this.socket = io(this.SERVER_URL, {
             transports: ['websocket', 'polling'],
             reconnection: true,
@@ -55,8 +58,9 @@ export class NetworkManager implements IComponent {
         // Handle Current Players
         this.socket.on("currentPlayers", (players: Record<string, PlayerData>) => {
             console.log("Received current players:", Object.keys(players));
+            console.log("My character ID:", this.characterId);
             Object.values(players).forEach(playerData => {
-                if (playerData.id !== this.socket.id) {
+                if (playerData.characterId && playerData.characterId !== this.characterId) {
                     if (!this.remotePlayers.has(playerData.id))
                         this.createRemotePlayer(playerData);
                 }
@@ -66,13 +70,17 @@ export class NetworkManager implements IComponent {
         // Handle New Player
         this.socket.on("newPlayer", (playerData: PlayerData) => {
             console.log("New player joined:", playerData.id);
-            if (playerData.id !== this.socket.id && !this.remotePlayers.has(playerData.id)) {
+            if (playerData.characterId && playerData.characterId !== this.characterId
+                && !this.remotePlayers.has(playerData.id)) {
                 this.createRemotePlayer(playerData);
             }
         });
 
         // Handle Player Moved
         this.socket.on("playerMoved", (playerData: PlayerData) => {
+            if(playerData.characterId === this.characterId){
+                return;
+            }
             const player = this.remotePlayers.get(playerData.id);
             if (player) {
                 this.playerTargets.set(playerData.id, {
@@ -146,7 +154,7 @@ export class NetworkManager implements IComponent {
             return;
         }
 
-        const remotePlayer = new CharacterComponent(this.scene);
+        const remotePlayer = new CharacterComponent(this.scene,true);
         await remotePlayer.initialize();
 
         const characterRoot = remotePlayer.getCharacterRoot();
@@ -176,6 +184,7 @@ export class NetworkManager implements IComponent {
     }
 
     update(): void {
+        if(document.hidden || !this.localPlayer.getIsTabActive()) return;
 
         // Updates at specified interval
         const now = Date.now();
@@ -189,6 +198,7 @@ export class NetworkManager implements IComponent {
 
                 // Emit local player daata
                 this.socket.emit("playerUpdate", {
+                    characterId: this.characterId,
                     position: { x: position.x, y: position.y, z: position.z },
                     rotation: { y: rotation.y },
                     animation: animation
