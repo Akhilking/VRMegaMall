@@ -1,66 +1,56 @@
-import {Scene, Vector3, AssetContainer, TransformNode } from "@babylonjs/core";
+import { Scene, Vector3, AssetContainer, TransformNode } from "@babylonjs/core";
 import { LoadAssetContainerAsync } from "@babylonjs/core";
 import "@babylonjs/loaders";
-import { IComponent } from "./IComponent"; 
+import { IComponent } from "./IComponent";
+import { ModelComponent } from "./ModelComponent";
 
 export class MallComponent implements IComponent {
-    private scene:Scene;
-    private mallMesh : any;
-    private isLoading : boolean = false;
-    private isLoaded : boolean = false;
-    private assetContainer: AssetContainer | null = null;
-    private mallRoot: TransformNode | null = null;
+    private scene: Scene;
+    private modelComponent: ModelComponent;
+    private isLoaded: boolean = false;
 
-    constructor(scene: Scene) {
+
+    constructor(scene: Scene, modelComponent: ModelComponent) {
         this.scene = scene;
+        this.modelComponent = modelComponent;
     }
 
-    initialize(): void {
-        console.log("MallComponent initialized");
-        this.isLoading = true;
-
-        this.loadMallModel().then(() => {
-            this.isLoaded = true;
-            this.isLoading = false;
-        }).catch(error => {
-            console.error("Error loading mall model:", error);
-            this.isLoading = false;
-        });
-    }
-
-    private async loadMallModel(): Promise<void> {
-        try{
-            this.assetContainer = await LoadAssetContainerAsync(
+    async initialize(): Promise<void> {
+        try {
+            await this.modelComponent.loadModel(
+                "mall_structure",
                 "./assets/models/mall.glb",
-                this.scene,
+                {
+                    position: Vector3.Zero(),
+                    scaling: new Vector3(1, 1, 1),
+                    useCache: true,
+                    isInteractable: true
+                }
+            );
+            await this.modelComponent.loadModel(
+                "shoe_display_1",
+                "./assets/models/shoe.glb",
+                {
+                    position: new Vector3(0, 0, 5),
+                    scaling: new Vector3(5, 5, 5),
+                    useCache: true,
+                    isInteractable: true
+                }
             );
 
-            const result = this.assetContainer.addAllToScene();
-            this.mallRoot = new TransformNode("mallRoot", this.scene);
-            this.mallMesh = this.assetContainer.meshes[0];
-
-            if(this.mallMesh){
-                this.mallMesh.parent = this.mallRoot;
-                this.mallRoot.position = Vector3.Zero();
-                this.mallRoot.scaling.setAll(1);
-
-                this.assetContainer.meshes.forEach((mesh) => {
-                    if(mesh !== this.mallMesh){
-                        mesh.freezeWorldMatrix();
-                    }
-                    mesh.doNotSyncBoundingInfo = true;
-                });
-                this.scene.skipFrustumClipping = false;
-            }
-            console.log("Mall model loaded successfully.");
+            this.isLoaded = true;
+            console.log("Mall Models loaded Successfully")
         }
         catch (error) {
-            console.error("Error loading mall model:", error);
+            console.error("Error initializing mall model:", error);
         }
     }
 
+    getDisplayItemIds(): string[] {
+        return ["shoe_display_1"];
+    }
 
-    update():void{
+    update(): void {
 
     }
 
@@ -68,16 +58,9 @@ export class MallComponent implements IComponent {
         return this.isLoaded;
     }
 
-    getMallRoot(): TransformNode | null {
-        return this.mallRoot;
-    }
 
     dispose(): void {
-        if (this.assetContainer) {
-            this.assetContainer.removeAllFromScene();
-            this.assetContainer.dispose();
-            this.mallMesh = null;
-        }
+        this.isLoaded = false;
     }
 
 }

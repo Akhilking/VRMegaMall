@@ -6,6 +6,7 @@ import { CharacterComponent } from "./components/CharacterComponent";
 import { NetworkManager } from "./components/NetworkManager";
 import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder } from "@babylonjs/core";
 import { MallComponent } from "./components/MallComponent";
+import { ModelComponent } from "./components/ModelComponent";
 
 class App {
     private canvas: HTMLCanvasElement;
@@ -70,7 +71,11 @@ class App {
         this.addComponent(characterComponent);
         await characterComponent.initialize();
 
-        const mallComponent = new MallComponent(this.scene);
+        const modelComponent = new ModelComponent(this.scene);
+        this.addComponent(modelComponent);
+        await modelComponent.initialize();
+
+        const mallComponent = new MallComponent(this.scene, modelComponent);
         this.addComponent(mallComponent);
         await mallComponent.initialize();
 

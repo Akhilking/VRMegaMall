@@ -20,8 +20,8 @@ export class CharacterComponent implements IComponent {
     private moveDirection: Vector3 = new Vector3(0, 0, 0);
     private characterRoot: TransformNode | null = null;
     private danceModeActive: boolean = false;
-    private instanceId : string;
-    private isRemotePlayer : boolean = false;
+    private instanceId: string;
+    private isRemotePlayer: boolean = false;
 
     constructor(scene: Scene, isRemote: boolean = false) {
         this.scene = scene;
@@ -98,7 +98,9 @@ export class CharacterComponent implements IComponent {
         this.scene.activeCamera = this.fpsCamera;
         this.fpsCamera.inputs.clear();
         const canvas = this.scene.getEngine().getRenderingCanvas();
-        this.fpsCamera.attachControl(canvas, true);
+
+        this.fpsCamera.attachControl(canvas, true)
+
         this.scene.onPointerDown = () => {
             if (this.characterRoot && this.isTabActive && !this.isRemotePlayer) {
                 this.isDragging = true;
@@ -113,12 +115,13 @@ export class CharacterComponent implements IComponent {
         this.scene.onPointerMove = (evt) => {
             if (this.characterRoot && this.isDragging && this.isTabActive && !this.isRemotePlayer) {
                 this.characterRoot.rotation.y -= evt.movementX * 0.002;
+                this.characterRoot.rotation.x -= evt.movementY * 0.002;
             }
         }
     }
 
     private setupInputHandling(): void {
-        if(this.isRemotePlayer) return;
+        if (this.isRemotePlayer) return;
 
         window.addEventListener("keydown", (event) => {
             if (this.isTabActive) {
