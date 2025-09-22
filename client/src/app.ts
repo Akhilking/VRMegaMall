@@ -7,6 +7,7 @@ import { NetworkManager } from "./components/NetworkManager";
 import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder } from "@babylonjs/core";
 import { MallComponent } from "./components/MallComponent";
 import { ModelComponent } from "./components/ModelComponent";
+import { AssetManager } from "./components/AssetManager";
 
 class App {
     private canvas: HTMLCanvasElement;
@@ -67,11 +68,15 @@ class App {
         this.addComponent(scenecomponent);
         scenecomponent.initialize();
 
-        const characterComponent = new CharacterComponent(this.scene);
-        this.addComponent(characterComponent);
-        await characterComponent.initialize();
+        // const characterComponent = new CharacterComponent(this.scene);
+        // this.addComponent(characterComponent);
+        // await characterComponent.initialize();
 
-        const modelComponent = new ModelComponent(this.scene);
+        const assetManager = new AssetManager(this.scene);
+        this.addComponent(assetManager);
+        assetManager.initialize();
+
+        const modelComponent = new ModelComponent(this.scene, assetManager);
         this.addComponent(modelComponent);
         await modelComponent.initialize();
 
@@ -79,21 +84,21 @@ class App {
         this.addComponent(mallComponent);
         await mallComponent.initialize();
 
-        const fpsCamera = characterComponent.getCamera();
-        if (fpsCamera) {
-            //Dispose the previous camera if it exists
-            const defaultCamera = scenecomponent.getCamera();
-            if (defaultCamera && defaultCamera.id !== fpsCamera.id) {
-                defaultCamera.dispose();
-            }
-            this.scene.activeCamera = fpsCamera;
-        } else {
-            console.warn("Follow camera not initialized in CharacterComponent");
-        }
+        // const fpsCamera = characterComponent.getCamera();
+        // if (fpsCamera) {
+        //     //Dispose the previous camera if it exists
+        //     const defaultCamera = scenecomponent.getCamera();
+        //     if (defaultCamera && defaultCamera.id !== fpsCamera.id) {w
+        //         defaultCamera.dispose();
+        //     }
+        //     this.scene.activeCamera = fpsCamera;
+        // } else {
+        //     console.warn("Follow camera not initialized in CharacterComponent");
+        // }
 
-        const networkManager = new NetworkManager(this.scene, characterComponent);
-        this.addComponent(networkManager);
-        networkManager.initialize();
+        // const networkManager = new NetworkManager(this.scene, characterComponent);
+        // this.addComponent(networkManager);
+        // networkManager.initialize();
     }
     private setupInspector(): void {
         window.addEventListener("keydown", (ev) => {
