@@ -1,7 +1,7 @@
 import { Scene, Vector3, AssetContainer, TransformNode, AbstractMesh, Mesh, HighlightLayer, Color3, PointerEventTypes } from "@babylonjs/core";
 import { LoadAssetContainerAsync } from "@babylonjs/core";
 import "@babylonjs/loaders";
-import { IComponent } from "./IComponent";
+import { IComponent } from "../interfaces/IComponent";
 
 export class AssetManager implements IComponent {
     private scene: Scene;

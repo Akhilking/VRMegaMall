@@ -1,6 +1,6 @@
 import "@babylonjs/core/Debug/debugLayer";
 import "@babylonjs/inspector";
-import { IComponent } from "./components/IComponent";
+import { IComponent } from "./interfaces/IComponent";
 import { SceneComponent } from "./components/SceneComponent";
 import { CharacterComponent } from "./components/CharacterComponent";
 import { NetworkManager } from "./components/NetworkManager";

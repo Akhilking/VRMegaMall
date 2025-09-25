@@ -1,7 +1,7 @@
 import { Scene, Vector3, AssetContainer, TransformNode, AbstractMesh, Mesh, HighlightLayer, Color3, PointerEventTypes } from "@babylonjs/core";
 import { LoadAssetContainerAsync } from "@babylonjs/core";
 import "@babylonjs/loaders";
-import { IComponent } from "./IComponent";
+import { IComponent } from "../interfaces/IComponent";
 import { AssetManager } from "./AssetManager";
 
 export class ModelComponent implements IComponent {
@@ -19,7 +19,7 @@ export class ModelComponent implements IComponent {
 
     async update(): Promise<void> {}
 
-    async loadModel(id: string, modelUrl: string): Promise<string> {
+    async loadModel(id: string, modelUrl: string): Promise<TransformNode> {
         try{
             const modelRoot = new TransformNode(`model_root_${id}`, this.scene);
             this.modelRoots.set(id, modelRoot)
@@ -27,11 +27,14 @@ export class ModelComponent implements IComponent {
             const assetContainer = await this.assetManager.loadAsset(id, modelUrl);
             assetContainer.addAllToScene();
 
-
+            assetContainer.meshes.forEach(mesh => {
+                mesh.parent = modelRoot;
+            });
             if(assetContainer.animationGroups.length > 0){
                 assetContainer.animationGroups.forEach(anim => anim.stop());
             }
-            return id;
+            console.log(assetContainer.meshes[0].position)
+            return modelRoot;
         }
         catch(error){
             console.error("Error loading model:", error);

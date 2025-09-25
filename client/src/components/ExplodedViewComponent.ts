@@ -20,7 +20,7 @@ import {
     VertexBuffer
 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Button, Control, StackPanel, TextBlock } from "@babylonjs/gui";
-import { IComponent } from "./IComponent";
+import { IComponent } from "../interfaces/IComponent";
 import { ModelComponent } from "./ModelComponent";
 
 Effect.ShadersStore["xrayVertexShader"] = `

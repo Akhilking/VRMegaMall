@@ -1,7 +1,7 @@
 import { Scene, Vector3, AssetContainer, TransformNode, AnimationGroup, Matrix, FollowCamera, UniversalCamera } from "@babylonjs/core";
 import { LoadAssetContainerAsync } from "@babylonjs/core";
 import "@babylonjs/loaders";
-import { IComponent } from "./IComponent";
+import { IComponent } from "../interfaces/IComponent";
 
 export class CharacterComponent implements IComponent {
     private scene: Scene;

@@ -1,6 +1,6 @@
 import { Scene, Vector3, MeshBuilder, StandardMaterial, Color3 } from "@babylonjs/core";
 import { io, Socket } from "socket.io-client";
-import { IComponent } from "./IComponent";
+import { IComponent } from "../interfaces/IComponent";
 import { CharacterComponent } from "./CharacterComponent";
 
 interface PlayerData {
