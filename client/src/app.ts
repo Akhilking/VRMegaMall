@@ -1,16 +1,21 @@
 import "@babylonjs/core/Debug/debugLayer";
 import "@babylonjs/inspector";
-import { IComponent } from "./components/IComponent";
+import { IComponent } from "./interfaces/IComponent";
 import { SceneComponent } from "./components/SceneComponent";
 import { CharacterComponent } from "./components/CharacterComponent";
 import { NetworkManager } from "./components/NetworkManager";
 import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder } from "@babylonjs/core";
+import { MallComponent } from "./components/MallComponent";
+import { ModelComponent } from "./components/ModelComponent";
+import { AssetManager } from "./components/AssetManager";
+import { ReactUIWrapper } from "./components/UI/ReactUIWrapper";
 
 class App {
     private canvas: HTMLCanvasElement;
     private engine: Engine;
     private scene: Scene;
     private components: IComponent[] = [];
+    private reactUI: ReactUIWrapper;
 
     constructor() {
         this.setupCanvas();
@@ -46,6 +51,10 @@ class App {
         document.body.appendChild(this.canvas);
     }
 
+    private setupReactUI(mallComponent: MallComponent): void {
+        this.reactUI = new ReactUIWrapper(mallComponent);
+    }
+
     private createEngine() {
         this.engine = new Engine(this.canvas, true);
         window.addEventListener("resize", () => {
@@ -65,25 +74,39 @@ class App {
         this.addComponent(scenecomponent);
         scenecomponent.initialize();
 
-        const characterComponent = new CharacterComponent(this.scene);
-        this.addComponent(characterComponent);
-        await characterComponent.initialize();
+        // const characterComponent = new CharacterComponent(this.scene);
+        // this.addComponent(characterComponent);
+        // await characterComponent.initialize();
 
-        const followCamera = characterComponent.getCamera();
-        if (followCamera) {
-            //Dispose the previous camera if it exists
-            const defaultCamera = scenecomponent.getCamera();
-            if (defaultCamera) {
-                this.scene.activeCamera.dispose();
-            }
-            this.scene.activeCamera = followCamera;
-        } else {
-            console.warn("Follow camera not initialized in CharacterComponent");
-        }
+        const assetManager = new AssetManager(this.scene);
+        this.addComponent(assetManager);
+        assetManager.initialize();
 
-        const networkManager = new NetworkManager(this.scene, characterComponent);
-        this.addComponent(networkManager);
-        networkManager.initialize();
+        const modelComponent = new ModelComponent(this.scene, assetManager);
+        this.addComponent(modelComponent);
+        await modelComponent.initialize();
+
+        const mallComponent = new MallComponent(this.scene, modelComponent);
+        this.addComponent(mallComponent);
+        await mallComponent.initialize();
+
+        this.setupReactUI(mallComponent);
+
+        // const fpsCamera = characterComponent.getCamera();
+        // if (fpsCamera) {
+        //     //Dispose the previous camera if it exists
+        //     const defaultCamera = scenecomponent.getCamera();
+        //     if (defaultCamera && defaultCamera.id !== fpsCamera.id) {w
+        //         defaultCamera.dispose();
+        //     }
+        //     this.scene.activeCamera = fpsCamera;
+        // } else {
+        //     console.warn("Follow camera not initialized in CharacterComponent");
+        // }
+
+        // const networkManager = new NetworkManager(this.scene, characterComponent);
+        // this.addComponent(networkManager);
+        // networkManager.initialize();
     }
     private setupInspector(): void {
         window.addEventListener("keydown", (ev) => {

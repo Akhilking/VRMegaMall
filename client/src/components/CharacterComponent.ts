@@ -1,7 +1,7 @@
-import { Scene, Vector3, AssetContainer, TransformNode, AnimationGroup, Matrix, FollowCamera } from "@babylonjs/core";
+import { Scene, Vector3, AssetContainer, TransformNode, AnimationGroup, Matrix, FollowCamera, UniversalCamera } from "@babylonjs/core";
 import { LoadAssetContainerAsync } from "@babylonjs/core";
 import "@babylonjs/loaders";
-import { IComponent } from "./IComponent";
+import { IComponent } from "../interfaces/IComponent";
 
 export class CharacterComponent implements IComponent {
     private scene: Scene;
@@ -9,17 +9,36 @@ export class CharacterComponent implements IComponent {
     private assetContainer: AssetContainer | null = null;
     private animations: AnimationGroup[] = [];
     private currentAnimation: AnimationGroup | null = null;
-    private followCamera: FollowCamera | null = null;
-
+    private fpsCamera: UniversalCamera | null = null;
+    private headNode: TransformNode | null = null;
+    private cameraHeight: number = 27;
+    private isDragging: boolean = false;
+    private isTabActive: boolean = true;
     private moveSpeed: number = 0.1;
-    private rotationSpeed: number = 0.05;
+    private rotationAmount: number = 0.03;
     private inputMap: { [key: string]: boolean } = {};
     private moveDirection: Vector3 = new Vector3(0, 0, 0);
     private characterRoot: TransformNode | null = null;
     private danceModeActive: boolean = false;
+    private instanceId: string;
+    private isRemotePlayer: boolean = false;
 
-    constructor(scene: Scene) {
+    constructor(scene: Scene, isRemote: boolean = false) {
         this.scene = scene;
+        this.isRemotePlayer = isRemote;
+        this.instanceId = `char_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        if (!this.isRemotePlayer) {
+            document.addEventListener("visibilitychange", () => {
+                this.isTabActive = !document.hidden;
+                if (!this.isTabActive) {
+                    Object.keys(this.inputMap).forEach(key => {
+                        this.inputMap[key] = false;
+                    });
+                    this.moveDirection.setAll(0);
+                    this.isDragging = false;
+                }
+            });
+        }
     }
 
     async initialize(): Promise<void> {
@@ -47,11 +66,13 @@ export class CharacterComponent implements IComponent {
                 this.characterMesh.parent = this.characterRoot;
                 this.characterRoot.position = new Vector3(0, 0, 0);
                 this.characterRoot.scaling.setAll(0.1);
-                this.characterMesh.position = Vector3.Zero();
-                this.characterMesh.scaling = new Vector3(1, 1, 1);
+
+                this.headNode = new TransformNode("headNode", this.scene);
+                this.headNode.parent = this.characterRoot;
+                this.headNode.position = new Vector3(0, this.cameraHeight, -20);
             }
 
-            this.setupFollowCamera();
+            this.setupFPSCamera();
             this.setupInputHandling();
 
             console.log("Character model loaded successfully");
@@ -61,42 +82,65 @@ export class CharacterComponent implements IComponent {
         }
     }
 
-    private setupFollowCamera(): void {
-        if (!this.characterRoot) return;
 
-        this.followCamera = new FollowCamera("FollowCamera", new Vector3(0, 5, -10), this.scene, this.characterMesh);
+    private setupFPSCamera(): void {
+        if (!this.headNode || this.isRemotePlayer) return;
 
-        this.followCamera.radius = 10;
-        this.followCamera.lowerRadiusLimit = 5;
-        this.followCamera.upperRadiusLimit = 15;
+        this.fpsCamera = new UniversalCamera("FPSCamera", Vector3.Zero(), this.scene);
+        this.fpsCamera.parent = this.headNode;
 
-        this.followCamera.heightOffset = 1.5;
-        this.followCamera.lowerHeightOffsetLimit = 0.5;
-        this.followCamera.upperHeightOffsetLimit = 8;
+        this.fpsCamera.fov = 1.2;
+        this.fpsCamera.minZ = 0.1;
 
-        this.followCamera.rotationOffset = 0;
-        this.followCamera.cameraAcceleration = 0.01;
-        this.followCamera.maxCameraSpeed = 1;
+        this.fpsCamera.applyGravity = false;
+        this.fpsCamera.checkCollisions = false;
 
-        this.followCamera.attachControl(true);
+        this.scene.activeCamera = this.fpsCamera;
+        this.fpsCamera.inputs.clear();
+        const canvas = this.scene.getEngine().getRenderingCanvas();
+
+        this.fpsCamera.attachControl(canvas, true)
+
+        this.scene.onPointerDown = () => {
+            if (this.characterRoot && this.isTabActive && !this.isRemotePlayer) {
+                this.isDragging = true;
+            }
+        };
+        this.scene.onPointerUp = () => {
+            if (this.characterRoot && this.isTabActive && !this.isRemotePlayer) {
+                this.isDragging = false;
+            }
+        };
+
+        this.scene.onPointerMove = (evt) => {
+            if (this.characterRoot && this.isDragging && this.isTabActive && !this.isRemotePlayer) {
+                this.characterRoot.rotation.y -= evt.movementX * 0.002;
+                this.characterRoot.rotation.x -= evt.movementY * 0.002;
+            }
+        }
     }
 
     private setupInputHandling(): void {
-        window.addEventListener("keydown", (event) => {
-            this.inputMap[event.key.toLowerCase()] = true;
+        if (this.isRemotePlayer) return;
 
-            if (event.key.toLowerCase() === 'e') {
-                this.danceModeActive = !this.danceModeActive;
-                if (this.danceModeActive) {
-                    this.playAnimation("Samba");
+        window.addEventListener("keydown", (event) => {
+            if (this.isTabActive) {
+                this.inputMap[event.key.toLowerCase()] = true;
+
+                if (event.key.toLowerCase() === 'r') {
+                    this.danceModeActive = !this.danceModeActive;
+                    if (this.danceModeActive) {
+                        this.playAnimation("Samba");
+                    }
                 }
             }
         });
 
         window.addEventListener("keyup", (event) => {
-            this.inputMap[event.key.toLowerCase()] = false;
-        }
-        );
+            if (this.isTabActive) {
+                this.inputMap[event.key.toLowerCase()] = false;
+            }
+        });
     }
 
     private playAnimation(name: string): void {
@@ -113,30 +157,37 @@ export class CharacterComponent implements IComponent {
         }
         animation.play(true);
         this.currentAnimation = animation;
-        // console.log(`Playing animation: ${name}`);
 
     }
     update(): void {
-        // Update character logic here (e.g., play animations)
-        if (!this.characterRoot) return;
-
-        if (this.danceModeActive) {
-            return;
-        }
+        if (!this.characterRoot || !this.fpsCamera || !this.isTabActive || this.isRemotePlayer || this.danceModeActive) return;
 
         this.moveDirection.setAll(0);
 
+        const forward = this.fpsCamera.getDirection(Vector3.Forward());
+        forward.y = 0;
+        forward.normalize();
+
+        const right = Vector3.Cross(forward, Vector3.Up()).normalize();
+
         if (this.inputMap["w"] || this.inputMap["arrowup"]) {
-            this.moveDirection.z = -1;
+            this.moveDirection.addInPlace(forward);
         }
         if (this.inputMap["s"] || this.inputMap["arrowdown"]) {
-            this.moveDirection.z = 1;
+            this.moveDirection.addInPlace(forward.scale(-1));
         }
         if (this.inputMap["a"] || this.inputMap["arrowleft"]) {
-            this.moveDirection.x = 1;
+            this.moveDirection.addInPlace(right);
         }
         if (this.inputMap["d"] || this.inputMap["arrowright"]) {
-            this.moveDirection.x = -1;
+            this.moveDirection.addInPlace(right.scale(-1));
+        }
+
+        if (this.inputMap["q"]) {
+            this.characterRoot.rotation.y -= this.rotationAmount;
+        }
+        if (this.inputMap["e"]) {
+            this.characterRoot.rotation.y += this.rotationAmount;
         }
 
         this.updateAnimation();
@@ -144,52 +195,9 @@ export class CharacterComponent implements IComponent {
 
         if (this.moveDirection.length() > 0) {
             this.moveDirection.normalize();
-
-            const shouldRotate = this.moveDirection.z !== 0;
-
-            const worldMovement = Vector3.TransformCoordinates(
-                new Vector3(this.moveDirection.x, 0, this.moveDirection.z),
-                Matrix.RotationY(this.characterRoot.rotation.y)
-            )
-
-            this.characterRoot.position.addInPlace(worldMovement.scale(this.moveSpeed));
-
-            if (shouldRotate) {
-                if (this.moveDirection.z >= 0) {
-                    const targetRotation = Math.atan2(this.moveDirection.x, this.moveDirection.z);
-
-                    //smooth rotation
-                    const currentRotation = this.characterRoot.rotation.y;
-                    const rotationDiff = targetRotation - currentRotation;
-
-                    let deltaRotation = rotationDiff;
-                    if (rotationDiff > Math.PI) {
-                        deltaRotation -= 2 * Math.PI;
-                    }
-                    if (rotationDiff < -Math.PI) {
-                        deltaRotation += 2 * Math.PI;
-                    }
-
-                    this.characterRoot.rotation.y += deltaRotation * this.rotationSpeed;
-                }
-                else {
-                    const targetRotation = Math.atan2(-this.moveDirection.x, -this.moveDirection.z);
-
-                    //smooth rotation
-                    const currentRotation = this.characterRoot.rotation.y;
-                    const rotationDiff = targetRotation - currentRotation;
-
-                    let deltaRotation = rotationDiff;
-                    if (rotationDiff > Math.PI) {
-                        deltaRotation -= 2 * Math.PI;
-                    }
-                    if (rotationDiff < -Math.PI) {
-                        deltaRotation += 2 * Math.PI;
-                    }
-
-                    this.characterRoot.rotation.y += deltaRotation * this.rotationSpeed;
-                }
-            }
+            this.characterRoot.position.addInPlace(
+                this.moveDirection.scale(this.moveSpeed)
+            );
         }
     }
 
@@ -199,28 +207,24 @@ export class CharacterComponent implements IComponent {
         }
         if (this.moveDirection.length() === 0) {
             this.playAnimation("Idle");
-        } else if (this.moveDirection.z < 0) {
-            this.playAnimation("Walking");
-        } else if (this.moveDirection.z > 0) {
-            this.playAnimation("WalkingBack");
         } else {
             this.playAnimation("Walking");
         }
     }
+
     dispose(): void {
         if (this.assetContainer) {
-
             this.assetContainer.removeAllFromScene();
             this.assetContainer.dispose();
             this.characterMesh = null;
         }
-        if (this.followCamera) {
-            this.followCamera.dispose();
+        if (this.fpsCamera) {
+            this.fpsCamera.dispose();
         }
     }
 
-    getCamera(): FollowCamera | null {
-        return this.followCamera;
+    getCamera(): UniversalCamera | null {
+        return this.fpsCamera;
     }
 
     getCharacterRoot(): TransformNode | null {
@@ -232,5 +236,13 @@ export class CharacterComponent implements IComponent {
 
     getAnimations(): AnimationGroup[] {
         return this.animations;
+    }
+
+    getInstanceId(): string {
+        return this.instanceId;
+    }
+
+    getIsTabActive(): boolean {
+        return this.isTabActive;
     }
 }

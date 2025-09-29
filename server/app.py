@@ -16,7 +16,7 @@ socketio = SocketIO(
     )
 
 players = {}
-
+character_to_socket = {}
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
@@ -36,13 +36,13 @@ def handle_connect():
 
     players[player_id] = {
         'id':player_id,
+        'characterId':None,
         'position': {'x': 0, 'y': 0, 'z': 0},
         'rotation': {'y': 0},
         'animation': 'Idle',
         'model': 'default'
     }
     emit('currentPlayers', players)
-
     emit('newPlayer', players[player_id], broadcast=True,include_self=False)
 
 @socketio.on('disconnect')
@@ -57,12 +57,33 @@ def handle_disconnect():
 @socketio.on('playerUpdate')
 def handle_player_update(data):
     player_id = request.sid
-    if player_id in players:
-        players[player_id]['position'] = data['position']
-        players[player_id]['rotation'] = data['rotation']
-        players[player_id]['animation'] = data['animation']
+    character_id = data.get('characterId')
 
-        emit('playerMoved',players[player_id], broadcast=True, include_self=False)
+    if player_id in players:
+        if players[player_id]['characterId'] != character_id:
+            if character_id in character_to_socket and character_to_socket[character_id] != player_id:
+                print(f"Character {character_id} is already owned by {character_to_socket[character_id]}")
+                return
+            if players[player_id]['characterId']:
+                old_char_id = players[player_id]['characterId']
+                if character_to_socket.get(old_char_id):
+                    del character_to_socket[old_char_id]
+            players[player_id]['characterId'] = character_id
+            character_to_socket[character_id] = player_id
+            emit('newPlayer', players[player_id], broadcast=True)
+
+        if players[player_id]['characterId'] == character_id:
+            players[player_id]['position'] = data['position']
+            players[player_id]['rotation'] = data['rotation']
+            players[player_id]['animation'] = data['animation']
+            players[player_id]['characterId'] = character_id
+            emit('playerMoved', {
+                'id': player_id,
+                'characterId': character_id,
+                'position': data['position'],
+                'rotation': data['rotation'],
+                'animation': data['animation']
+            }, broadcast=True, include_self=False)
 
 if __name__ == '__main__':
     try:
