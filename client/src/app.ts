@@ -8,12 +8,14 @@ import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBu
 import { MallComponent } from "./components/MallComponent";
 import { ModelComponent } from "./components/ModelComponent";
 import { AssetManager } from "./components/AssetManager";
+import { ReactUIWrapper } from "./components/UI/ReactUIWrapper";
 
 class App {
     private canvas: HTMLCanvasElement;
     private engine: Engine;
     private scene: Scene;
     private components: IComponent[] = [];
+    private reactUI: ReactUIWrapper;
 
     constructor() {
         this.setupCanvas();
@@ -47,6 +49,10 @@ class App {
         this.canvas = document.createElement("canvas");
         this.canvas.id = "gameCanvas";
         document.body.appendChild(this.canvas);
+    }
+
+    private setupReactUI(mallComponent: MallComponent): void {
+        this.reactUI = new ReactUIWrapper(mallComponent);
     }
 
     private createEngine() {
@@ -83,6 +89,8 @@ class App {
         const mallComponent = new MallComponent(this.scene, modelComponent);
         this.addComponent(mallComponent);
         await mallComponent.initialize();
+
+        this.setupReactUI(mallComponent);
 
         // const fpsCamera = characterComponent.getCamera();
         // if (fpsCamera) {
