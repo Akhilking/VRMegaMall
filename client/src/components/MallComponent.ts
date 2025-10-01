@@ -1,4 +1,4 @@
-import { Scene, Vector3, AssetContainer, TransformNode, ArcRotateCamera, StandardMaterial, Texture, Color3, Material, FresnelParameters, PBRMaterial, AbstractMesh, Particle, ParticleSystem, Color4, DirectionalLight, HemisphericLight, MeshBuilder } from "@babylonjs/core";
+import { Scene, Vector3, AssetContainer, TransformNode, ArcRotateCamera, StandardMaterial, Texture, Color3, Material, FresnelParameters, PBRMaterial, AbstractMesh, Particle, ParticleSystem, Color4, DirectionalLight, HemisphericLight, MeshBuilder, CubeTexture } from "@babylonjs/core";
 import { LoadAssetContainerAsync } from "@babylonjs/core";
 import "@babylonjs/loaders";
 import { IComponent } from "../interfaces/IComponent";
@@ -28,7 +28,7 @@ export class MallComponent implements IComponent {
     }
 
     async initialize(): Promise<void> {
-        this.createShowroom();
+        this.createSkybox();
         try {
             const shoeModel = await this.modelComponent.loadModel(
                 "shoe_display",
@@ -48,27 +48,31 @@ export class MallComponent implements IComponent {
         }
     }
 
-    private createShowroom(): void {
-        const boxSize = 10;
-        const showroomBox = MeshBuilder.CreateBox("showroom", { size: boxSize }, this.scene);
+    private createSkybox(): void {
+        const skybox = MeshBuilder.CreateBox("skyBox", { size: 1000 }, this.scene);
+        const skyboxMaterial = new StandardMaterial("skyBoxMaterial", this.scene);
 
-        const whiteMaterial = new StandardMaterial("showroomMaterial", this.scene);
-        whiteMaterial.diffuseColor = new Color3(0.95, 0.95, 0.95);
-        whiteMaterial.specularColor = new Color3(0, 0, 0);
+        skyboxMaterial.backFaceCulling = false;
+        skyboxMaterial.disableLighting = true;
 
-        showroomBox.material = whiteMaterial;
-        showroomBox.flipFaces(true);
+        // skyboxMaterial.reflectionTexture = new CubeTexture(
+        //     "https://assets.babylonjs.com/environments/studio.env", this.scene);
+
+        skyboxMaterial.reflectionTexture = new CubeTexture(
+            "https://assets.babylonjs.com/environments/environmentSpecular.env", this.scene);
+
+        skyboxMaterial.reflectionTexture.coordinatesMode = Texture.SKYBOX_MODE;
+        skybox.material = skyboxMaterial;
+
+        // Make skybox not pickable and excluded from reflections
+        skybox.isPickable = false;
+    }
 
 
-        const mainLight = new DirectionalLight("mainLight", new Vector3(-0.5, -1, -0.3), this.scene);
-        mainLight.intensity = 0.4;
+    public applyCottonMaterial(color: Color3): void {
+        if (!this.originalModel) return;
 
-        const ambientLight = new HemisphericLight("ambientLight", new Vector3(0, 1, 0), this.scene);
-        ambientLight.intensity = 0.3;
-
-        const fillLight = new DirectionalLight("fillLight", new Vector3(0.3, -0.5, 0.2), this.scene);
-        fillLight.intensity = 0.2; 
-
+        this.materialEffectService.applyCottonMaterial(this.originalModel, color);
     }
 
     public async applyWetEffectTransition(): Promise<void> {

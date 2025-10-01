@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ProductReviewPanel } from './ProductReviewPanel';
+import { MainProductLayout } from './MainProductLayout';
 import { MallComponent } from '../MallComponent';
+import { Box, Fab } from '@mui/material';
+import { ShoppingCart } from '@mui/icons-material';
 
 const theme = createTheme({
     palette: {
@@ -12,18 +15,11 @@ const theme = createTheme({
     },
 });
 
-const App = React.createElement(
-    ThemeProvider,
-    { theme },
-    React.createElement(CssBaseline),
-    React.createElement(ProductReviewPanel)
-);
-
 export class ReactUIWrapper {
     private container: HTMLElement;
     private root: any;
     private mallComponent: MallComponent;
-    private currentEffect : string = 'original';
+    private currentEffect: string = 'original';
 
     constructor(mallComponent: MallComponent) {
         this.mallComponent = mallComponent;
@@ -39,6 +35,7 @@ export class ReactUIWrapper {
 
     private mountReactApp(): void {
         const handleEffectChange = async (effect: string) => {
+            // Your existing effect handling code...
             try {
                 if (!this.mallComponent) {
                     console.error("MallComponent is not available");
@@ -59,7 +56,7 @@ export class ReactUIWrapper {
                     console.log("Already in original state");
                     return;
                 }
-                if(effect === 'hot' && currentState === 'hot'){
+                if (effect === 'hot' && currentState === 'hot') {
                     console.log("Hot effect is already applied");
                     return;
                 }
@@ -88,17 +85,43 @@ export class ReactUIWrapper {
             catch (error) {
                 console.error("Error applying effect:", error);
             }
-        }
+        };
 
-        const App = React.createElement(
-            ThemeProvider,
-            { theme },
-            React.createElement(CssBaseline),
-            React.createElement(ProductReviewPanel, { onEffectChange: handleEffectChange })
-        );
+        // Main App component with both panels
+        const App = () => {
+            const [showProductList, setShowProductList] = useState(false);
+
+            return (
+                <ThemeProvider theme={theme}>
+                    <CssBaseline />
+
+                    {/* Product panel - conditionally shown */}
+                    {showProductList && (
+                        <MainProductLayout
+                            mallComponent={this.mallComponent}
+                            onClose={() => setShowProductList(false)}
+                        />
+                    )}
+
+                    {/* Review panel - always shown */}
+                    <ProductReviewPanel onEffectChange={handleEffectChange} />
+
+                    {/* Shopping button to open product list */}
+                    {!showProductList && (
+                        <Fab
+                            color="primary"
+                            sx={{ position: 'fixed', bottom: 20, left: 20 }}
+                            onClick={() => setShowProductList(true)}
+                        >
+                            <ShoppingCart />
+                        </Fab>
+                    )}
+                </ThemeProvider>
+            );
+        };
+
         this.root = ReactDOM.createRoot(this.container);
-        this.root.render(App);
-
+        this.root.render(<App />);
     }
 
     public show(): void {

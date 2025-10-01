@@ -14,10 +14,11 @@ export class SceneComponent implements IComponent {
     initialize(): void {
         // Create camera
         this.camera = new ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 3, Vector3.Zero(), this.scene);
-        this.camera.lowerRadiusLimit = 1.5;
-        this.camera.upperRadiusLimit = 50;
-        this.camera.wheelDeltaPercentage = 0.01;
-        this.camera.panningSensibility = 1000;
+        this.camera.lowerRadiusLimit = 1;
+        this.camera.upperRadiusLimit = 1.5;
+        // this.camera.wheelDeltaPercentage = 0.01;
+        // this.camera.panningSensibility = 1000;
+        this.camera.minZ = 0.01;
         this.camera.attachControl(this.canvas, true);
         this.camera.setTarget(Vector3.Zero());
         this.scene.activeCamera = this.camera;
