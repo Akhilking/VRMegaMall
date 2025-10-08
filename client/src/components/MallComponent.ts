@@ -49,11 +49,15 @@ export class MallComponent implements IComponent {
     }
 
     private createSkybox(): void {
+        // Create a skybox using a cube texture
         const skybox = MeshBuilder.CreateBox("skyBox", { size: 1000 }, this.scene);
         const skyboxMaterial = new StandardMaterial("skyBoxMaterial", this.scene);
 
+        // Important: Render skybox from inside
         skyboxMaterial.backFaceCulling = false;
         skyboxMaterial.disableLighting = true;
+
+        // Use one of these preset skyboxes (choose one and uncomment)
 
         // skyboxMaterial.reflectionTexture = new CubeTexture(
         //     "https://assets.babylonjs.com/environments/studio.env", this.scene);
@@ -408,4 +412,30 @@ export class MallComponent implements IComponent {
 
     }
 
+    public isInitialized(): boolean {
+        // Return whether the component is fully initialized
+        return this.scene !== undefined && this.scene !== null;
+    }
+
+    public onCanvasMoved(): void {
+        try {
+            if (!this.scene) return;
+            const engine = this.scene.getEngine();
+            if (!engine) return;
+            engine.resize();
+            // one extra delayed resize helps when layout transitions are animated
+            setTimeout(() => engine.resize(), 120);
+
+            // optional: adjust camera if needed
+            if (this.scene.activeCamera) {
+                // if ArcRotateCamera, refresh camera internals (safe guard)
+                const cam: any = this.scene.activeCamera;
+                if (typeof cam.rebuildAnglesAndRadius === "function") {
+                    try { cam.rebuildAnglesAndRadius(); } catch { }
+                }
+            }
+        } catch (err) {
+            console.error("MallComponent.onCanvasMoved error:", err);
+        }
+    }
 }

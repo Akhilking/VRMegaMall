@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ProductReviewPanel } from './ProductReviewPanel';
 import { MainProductLayout } from './MainProductLayout';
 import { MallComponent } from '../MallComponent';
-import { Box, Fab } from '@mui/material';
-import { ShoppingCart } from '@mui/icons-material';
+import { PauseCircle, PlayCircle } from '@mui/icons-material';
 
 const theme = createTheme({
     palette: {
@@ -20,22 +19,39 @@ export class ReactUIWrapper {
     private root: any;
     private mallComponent: MallComponent;
     private currentEffect: string = 'original';
+    private canvasElement: HTMLCanvasElement | null = null;
 
     constructor(mallComponent: MallComponent) {
         this.mallComponent = mallComponent;
         this.createContainer();
+        this.saveCanvasReference();
         this.mountReactApp();
     }
 
     private createContainer(): void {
         this.container = document.createElement('div');
         this.container.id = 'react-ui-root';
+        this.container.style.position = 'absolute';
+        this.container.style.top = '0';
+        this.container.style.left = '0';
+        this.container.style.width = '100%';
+        this.container.style.height = '100%';
+        this.container.style.zIndex = '10';
         document.body.appendChild(this.container);
     }
 
+    private saveCanvasReference(): void {
+        // Save a reference to the Babylon canvas
+        this.canvasElement = document.getElementById('renderCanvas') as HTMLCanvasElement;
+    }
+
     private mountReactApp(): void {
+        if (!this.mallComponent) {
+            console.error("MallComponent is null or undefined!");
+            return;
+        }
+        
         const handleEffectChange = async (effect: string) => {
-            // Your existing effect handling code...
             try {
                 if (!this.mallComponent) {
                     console.error("MallComponent is not available");
@@ -87,35 +103,41 @@ export class ReactUIWrapper {
             }
         };
 
-        // Main App component with both panels
+        // Main App component with integrated layout
         const App = () => {
-            const [showProductList, setShowProductList] = useState(false);
+            // Add useEffect to move the canvas to the 3D container after rendering
+            useEffect(() => {
+                // Check if the mall component is loaded and ready
+                if (!this.mallComponent) {
+                    console.error("MallComponent is not ready!");
+                    return;
+                }
+
+                // Wait for the DOM to be ready
+                setTimeout(() => {
+                    const canvas = document.getElementById('renderCanvas');
+                    const container = document.querySelector('[data-testid="3d-view-container"]');
+
+                    if (canvas && container) {
+                        canvas.style.width = '100%';
+                        canvas.style.height = '100%';
+                        canvas.style.position = 'absolute';
+                        canvas.style.top = '0';
+                        canvas.style.left = '0';
+                        canvas.style.outline = 'none';
+                        canvas.style.margin = '0';
+                        canvas.style.padding = '0';
+                        container.appendChild(canvas);
+                        console.log("Canvas successfully moved to React container");
+                    }
+                }, 200); // Give a bit more time for React rendering
+            }, []);
 
             return (
                 <ThemeProvider theme={theme}>
                     <CssBaseline />
-
-                    {/* Product panel - conditionally shown */}
-                    {showProductList && (
-                        <MainProductLayout
-                            mallComponent={this.mallComponent}
-                            onClose={() => setShowProductList(false)}
-                        />
-                    )}
-
-                    {/* Review panel - always shown */}
-                    <ProductReviewPanel onEffectChange={handleEffectChange} />
-
-                    {/* Shopping button to open product list */}
-                    {!showProductList && (
-                        <Fab
-                            color="primary"
-                            sx={{ position: 'fixed', bottom: 20, left: 20 }}
-                            onClick={() => setShowProductList(true)}
-                        >
-                            <ShoppingCart />
-                        </Fab>
-                    )}
+                    <MainProductLayout mallComponent={this.mallComponent} />
+                    {/* <ProductReviewPanel onEffectChange={handleEffectChange} /> */}
                 </ThemeProvider>
             );
         };
@@ -132,7 +154,20 @@ export class ReactUIWrapper {
         this.container.style.display = 'none';
     }
 
+    // Add cleanup in a dispose method:
+    public dispose(): void {
+        // Clean up other resources
+        if (this.root) {
+            this.root.unmount();
+        }
+    }
     public destroy(): void {
+        // Return the canvas to its original container before unmounting
+        const canvas = this.canvasElement;
+        if (canvas && canvas.parentNode) {
+            document.body.appendChild(canvas);
+        }
+
         if (this.root) {
             this.root.unmount();
         }

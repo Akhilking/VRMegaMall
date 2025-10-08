@@ -36,7 +36,7 @@ class App {
                 padding: 0;
                 overflow: hidden;
             }
-            #gameCanvas {
+            #renderCanvas {
                 width: 100%;
                 height: 100%;
                 display: block;
@@ -47,7 +47,7 @@ class App {
 
         // create the canvas html element and attach it to the webpage
         this.canvas = document.createElement("canvas");
-        this.canvas.id = "gameCanvas";
+        this.canvas.id = "renderCanvas";
         document.body.appendChild(this.canvas);
     }
 
@@ -57,9 +57,35 @@ class App {
 
     private createEngine() {
         this.engine = new Engine(this.canvas, true);
-        window.addEventListener("resize", () => {
-            this.engine.resize();
-        });
+        const handleWindowResize = () => {
+            if ((this as any)._engineResizeTimer) {
+                window.clearTimeout((this as any)._engineResizeTimer);
+            }
+            (this as any)._engineResizeTimer = window.setTimeout(() => {
+                try { this.engine.resize(); } catch (e) { console.warn("Engine resize failed:", e); }
+                (this as any)._engineResizeTimer = undefined;
+            }, 80);
+        };
+        window.addEventListener("resize", handleWindowResize);
+
+        try {
+            const canvasObserver = new ResizeObserver(() => {
+                if ((this as any)._canvasResizeTimer) {
+                    window.clearTimeout((this as any)._canvasResizeTimer);
+                }
+                (this as any)._canvasResizeTimer = window.setTimeout(() => {
+                    try { this.engine.resize(); } catch (e) { console.warn("Engine resize failed:", e); }
+                    (this as any)._canvasResizeTimer = undefined;
+                }, 80);
+            });
+            canvasObserver.observe(this.canvas);
+            (this as any)._canvasResizeObserver = canvasObserver;
+        } catch (err) {
+            console.warn("ResizeObserver not available for canvas:", err);
+        }
+
+        // store handler so it can be removed if you add cleanup later
+        (this as any)._handleWindowResize = handleWindowResize;
     }
 
     private createScene() {
