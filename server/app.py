@@ -1,97 +1,47 @@
-from flask import Flask,request,send_from_directory
-from flask_socketio import SocketIO, emit
-from flask_cors import CORS
-import os 
-import json
+from flask import Flask, request, jsonify, send_from_directory, abort
+import os
+from tasks import process_url_task, celery
+from celery.result import AsyncResult
 
-app = Flask(__name__, static_folder='static')
-app.config['SECRET_KEY'] = 'secret!'
-CORS(app,resources={r"/*":{"origins":"*"}})
-socketio = SocketIO(
-    app, 
-    cors_allowed_origins="*",
-    async_mode='eventlet',  # Add async mode for better performance
-    ping_timeout=60,        # Increase ping timeout for reliable connections
-    ping_interval=25        # Adjust ping interval
-    )
+app = Flask(__name__, static_folder="static")
 
-players = {}
-character_to_socket = {}
-@app.route('/')
-def index():
-    return send_from_directory(app.static_folder, 'index.html')
+@app.route("/api/process-url", methods=["POST"])
+def api_process_url():
+    data = request.get_json() or {}
+    url = data.get("url")
+    if not url:
+        return jsonify({"error":"missing url"}), 400
+    render = bool(data.get("render", False))
+    task = process_url_task.delay(url, render)
+    return jsonify({"ok": True, "task_id": task.id}), 202
 
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory(app.static_folder, path)
-
-@app.route('/test')
-def test():
-    return "Server is running!"
-
-@socketio.on('connect')
-def handle_connect():
-    player_id = request.sid
-    print(f'Player {player_id} connected')
-
-    players[player_id] = {
-        'id':player_id,
-        'characterId':None,
-        'position': {'x': 0, 'y': 0, 'z': 0},
-        'rotation': {'y': 0},
-        'animation': 'Idle',
-        'model': 'default'
-    }
-    emit('currentPlayers', players)
-    emit('newPlayer', players[player_id], broadcast=True,include_self=False)
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    player_id = request.sid
-    print(f'Player {player_id} disconnected')
-
-    if player_id in players:
-        del players[player_id]
-        emit('removePlayer', player_id, broadcast=True)
-
-@socketio.on('playerUpdate')
-def handle_player_update(data):
-    player_id = request.sid
-    character_id = data.get('characterId')
-
-    if player_id in players:
-        if players[player_id]['characterId'] != character_id:
-            if character_id in character_to_socket and character_to_socket[character_id] != player_id:
-                print(f"Character {character_id} is already owned by {character_to_socket[character_id]}")
-                return
-            if players[player_id]['characterId']:
-                old_char_id = players[player_id]['characterId']
-                if character_to_socket.get(old_char_id):
-                    del character_to_socket[old_char_id]
-            players[player_id]['characterId'] = character_id
-            character_to_socket[character_id] = player_id
-            emit('newPlayer', players[player_id], broadcast=True)
-
-        if players[player_id]['characterId'] == character_id:
-            players[player_id]['position'] = data['position']
-            players[player_id]['rotation'] = data['rotation']
-            players[player_id]['animation'] = data['animation']
-            players[player_id]['characterId'] = character_id
-            emit('playerMoved', {
-                'id': player_id,
-                'characterId': character_id,
-                'position': data['position'],
-                'rotation': data['rotation'],
-                'animation': data['animation']
-            }, broadcast=True, include_self=False)
-
-if __name__ == '__main__':
+@app.route("/api/job/<task_id>", methods=["GET"])
+def api_job_status(task_id):
+    res = AsyncResult(task_id, app=celery)
+    if res.state == "PENDING":
+        return jsonify({"status": "pending"}), 202
+    if res.state in ("STARTED", "RETRY"):
+        return jsonify({"status": res.state}), 202
+    if res.state == "FAILURE":
+        return jsonify({"status":"failure", "error": str(res.result)}), 500
+    # READY
     try:
-        print("Starting Flask-SocketIO server on port 3000...")
-        socketio.run(app, host='0.0.0.0', port=3000, debug=True, log_output=True)
+        result = res.get(timeout=1)
     except Exception as e:
-        print(f"Error starting server: {e}")
-        import traceback
-        traceback.print_exc()
+        return jsonify({"status":"error", "error": str(e)}), 500
+    return jsonify({"status":"done", "result": result})
 
+# static files served from server/static
+@app.route("/static/uploads/<path:filename>")
+def static_uploads(filename):
+    root = os.path.join(os.path.dirname(__file__), "static", "uploads")
+    if not os.path.exists(os.path.join(root, filename)):
+        abort(404)
+    return send_from_directory(root, filename)
 
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
+    # https://www.amazon.com/MAGCOMSEN-Cotton-Pocket-Lightweight-Relaxed/dp/B0C7GHSG9F/ref=sr_1_3_sspa?sr=8-3-spons&sp_csd=d2lkZ2V0TmFtZT1zcF9hdGY&psc=1
+# curl -X POST http://localhost:5000/api/process-url \
+# -H "Content-Type: application/json" \
+# -d '{"url":"https://www.amazon.com/MAGCOMSEN-Cotton-Pocket-Lightweight-Relaxed/dp/B0C7GHSG9F/ref=sr_1_3_sspa?sr=8-3-spons&sp_csd=d2lkZ2V0TmFtZT1zcF9hdGY&psc=1","render":false"}'

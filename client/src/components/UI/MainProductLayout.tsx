@@ -186,19 +186,9 @@ export const MainProductLayout: React.FC<MainProductLayoutProps> = ({
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
         setActiveTab(newValue);
-        setSearchTerm(""); // Clear search when switching tabs
+        setSearchTerm(""); 
     };
 
-    const toggleSidebar = () => {
-        setIsExpanded(!isExpanded);
-    };
-
-    const addToCart = (product: any) => {
-        console.log(`Added ${product.name} to cart`);
-        // Implement your cart logic here
-    };
-
-    // Add this function to handle resize start
     const handleResizeStart = (e: React.MouseEvent) => {
         e.preventDefault();
         initialXRef.current = e.clientX;
@@ -206,18 +196,6 @@ export const MainProductLayout: React.FC<MainProductLayoutProps> = ({
         setIsResizing(true);
     };
 
-    const wearItem = (item: any) => {
-        console.log(`Now wearing ${item.name}`);
-        // Implement your wear logic here
-
-        // Optional visual feedback
-        // enqueueSnackbar(`Now wearing ${item.name}`, {
-        //     variant: 'success',
-        //     anchorOrigin: { vertical: 'top', horizontal: 'center' }
-        // });
-    };
-
-    // Add these state variables to your MainProductLayout component
     const [bottomTabValue, setBottomTabValue] = useState('analysis');
     const [selectedEffect, setSelectedEffect] = useState<string>('original');
     const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
@@ -318,14 +296,12 @@ export const MainProductLayout: React.FC<MainProductLayoutProps> = ({
         }
     };
 
-    // Add this function for handling weather effects
     const handleEffectChange = async (effect: string) => {
         if (isTransitioning) return;
 
         setIsTransitioning(true);
         setSelectedEffect(effect);
 
-        // Apply the effect using mallComponent
         if (effect === 'wet') {
             mallComponent.applyWetEffectTransition();
         } else if (effect === 'hot') {
@@ -339,13 +315,10 @@ export const MainProductLayout: React.FC<MainProductLayoutProps> = ({
         setIsTransitioning(false);
     };
 
-    // Calculate overall original score
     const originalOverallScore = Math.round(originalFeatures.reduce((sum, feature) => sum + feature.score, 0) / originalFeatures.length);
 
-    // Calculate weather effects average score
     const weatherEffectsScore = Math.round(effectResults.reduce((sum, effect) => sum + effect.overallScore, 0) / effectResults.length);
 
-    // Get current effect
     const currentEffect = effectResults.find(e => e.condition.toLowerCase().includes(selectedEffect));
 
     useEffect(() => {
